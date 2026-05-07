@@ -21,6 +21,9 @@ import (
 	"math"
 	"strconv"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	// Register pprof-over-http handlers
 	_ "net/http/pprof"
 	"regexp"
@@ -497,7 +500,8 @@ func (c *Collector) collectUnit(conn *dbus.Conn, ch chan<- prometheus.Metric, un
 
 	unitParts := strings.Split(unit.Name, ".")
 	unitSuffix := unitParts[len(unitParts)-1]
-	unitType := strings.Title(unitSuffix)
+	cas := cases.Title(language.Und)
+	unitType := cas.String(unitSuffix)
 
 	switch unitSuffix {
 	case "service":
