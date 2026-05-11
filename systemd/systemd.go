@@ -62,24 +62,11 @@ var (
 type Collector struct {
 	ctx                           context.Context
 	logger                        *slog.Logger
-	systemdBootMonotonic          *prometheus.Desc
-	systemdBootTime               *prometheus.Desc
 	systemdMeta                   *prometheus.Desc
 	unitCPUTotal                  *prometheus.Desc
 	unitMemoryCurrent             *prometheus.Desc
-	unitMemoryPeak                *prometheus.Desc
-	unitSwapCurrent               *prometheus.Desc
-	unitSwapPeak                  *prometheus.Desc
-	unitZSwapCurrent              *prometheus.Desc
 	unitState                     *prometheus.Desc
 	unitInfo                      *prometheus.Desc
-	unitStartTimeDesc             *prometheus.Desc
-	unitTasksCurrentDesc          *prometheus.Desc
-	unitTasksMaxDesc              *prometheus.Desc
-	unitActiveEnterTimeDesc       *prometheus.Desc
-	unitActiveExitTimeDesc        *prometheus.Desc
-	unitInactiveEnterTimeDesc     *prometheus.Desc
-	unitInactiveExitTimeDesc      *prometheus.Desc
 	nRestartsDesc                 *prometheus.Desc
 	timerLastTriggerDesc          *prometheus.Desc
 	socketAcceptedConnectionsDesc *prometheus.Desc
@@ -100,14 +87,6 @@ type Collector struct {
 
 // NewCollector returns a new Collector exposing systemd statistics.
 func NewCollector(logger *slog.Logger) (*Collector, error) {
-	systemdBootMonotonic := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "boot_monotonic_seconds"),
-		"systemd boot stage monotonic timestamps", []string{"stage"}, nil,
-	)
-	systemdBootTime := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "boot_time_seconds"),
-		"systemd boot stage timestamps", []string{"stage"}, nil,
-	)
 	systemdMeta := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "meta"),
 		"Static systemd metadata", []string{"full_version", "architecture", "virtualization"}, nil,
@@ -134,41 +113,6 @@ func NewCollector(logger *slog.Logger) (*Collector, error) {
 		"Mostly-static metadata for all unit types",
 		[]string{"name", "type", "mount_type", "service_type"}, nil,
 	)
-	unitStartTimeDesc := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_start_time_seconds"),
-		"Start time of the unit since unix epoch in seconds.",
-		[]string{"name", "type"}, nil,
-	)
-	unitTasksCurrentDesc := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_tasks_current"),
-		"Current number of tasks per systemd unit",
-		[]string{"name"}, nil,
-	)
-	unitTasksMaxDesc := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_tasks_max"),
-		"Maximum number of tasks per systemd unit",
-		[]string{"name", "type"}, nil,
-	)
-	unitActiveEnterTimeDesc := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_active_enter_time_seconds"),
-		"Last time the unit transitioned into the active state",
-		[]string{"name", "type"}, nil,
-	)
-	unitActiveExitTimeDesc := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_active_exit_time_seconds"),
-		"Last time the unit transitioned out of the active state",
-		[]string{"name", "type"}, nil,
-	)
-	unitInactiveEnterTimeDesc := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_inactive_enter_time_seconds"),
-		"Last time the unit transitioned into the inactive state",
-		[]string{"name", "type"}, nil,
-	)
-	unitInactiveExitTimeDesc := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_inactive_exit_time_seconds"),
-		"Last time the unit transitioned out of the inactive state",
-		[]string{"name", "type"}, nil,
-	)
 	nRestartsDesc := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "service_restart_total"),
 		"Service unit count of Restart triggers", []string{"name"}, nil)
@@ -194,26 +138,6 @@ func NewCollector(logger *slog.Logger) (*Collector, error) {
 	unitMemoryCurrent := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "unit_memory_current_bytes"),
 		"Current memory usage in bytes.",
-		[]string{"name", "type"}, nil,
-	)
-	unitMemoryPeak := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_memory_peak_bytes"),
-		"Peak memory usage in bytes.",
-		[]string{"name", "type"}, nil,
-	)
-	unitSwapCurrent := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_swap_current_bytes"),
-		"Current swap usage in bytes.",
-		[]string{"name", "type"}, nil,
-	)
-	unitSwapPeak := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_swap_peak_bytes"),
-		"Peak swap usage in bytes.",
-		[]string{"name", "type"}, nil,
-	)
-	unitZSwapCurrent := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "unit_zswap_current_bytes"),
-		"Current zswap usage in bytes.",
 		[]string{"name", "type"}, nil,
 	)
 
@@ -265,24 +189,11 @@ func NewCollector(logger *slog.Logger) (*Collector, error) {
 	return &Collector{
 		ctx:                           ctx,
 		logger:                        logger,
-		systemdBootMonotonic:          systemdBootMonotonic,
-		systemdBootTime:               systemdBootTime,
 		systemdMeta:                   systemdMeta,
 		unitCPUTotal:                  unitCPUTotal,
 		unitMemoryCurrent:             unitMemoryCurrent,
-		unitMemoryPeak:                unitMemoryPeak,
-		unitSwapCurrent:               unitSwapCurrent,
-		unitSwapPeak:                  unitSwapPeak,
-		unitZSwapCurrent:              unitZSwapCurrent,
 		unitState:                     unitState,
 		unitInfo:                      unitInfo,
-		unitStartTimeDesc:             unitStartTimeDesc,
-		unitTasksCurrentDesc:          unitTasksCurrentDesc,
-		unitTasksMaxDesc:              unitTasksMaxDesc,
-		unitActiveEnterTimeDesc:       unitActiveEnterTimeDesc,
-		unitActiveExitTimeDesc:        unitActiveExitTimeDesc,
-		unitInactiveEnterTimeDesc:     unitInactiveEnterTimeDesc,
-		unitInactiveExitTimeDesc:      unitInactiveExitTimeDesc,
 		nRestartsDesc:                 nRestartsDesc,
 		timerLastTriggerDesc:          timerLastTriggerDesc,
 		socketAcceptedConnectionsDesc: socketAcceptedConnectionsDesc,
@@ -311,20 +222,11 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 
 // Describe gathers descriptions of Metrics
 func (c *Collector) Describe(desc chan<- *prometheus.Desc) {
-	desc <- c.systemdBootMonotonic
-	desc <- c.systemdBootTime
 	desc <- c.systemdMeta
 	desc <- c.unitCPUTotal
 	desc <- c.unitMemoryCurrent
-	desc <- c.unitMemoryPeak
-	desc <- c.unitSwapCurrent
-	desc <- c.unitSwapPeak
-	desc <- c.unitZSwapCurrent
 	desc <- c.unitState
 	desc <- c.unitInfo
-	desc <- c.unitStartTimeDesc
-	desc <- c.unitTasksCurrentDesc
-	desc <- c.unitTasksMaxDesc
 	desc <- c.nRestartsDesc
 	desc <- c.timerLastTriggerDesc
 	desc <- c.socketAcceptedConnectionsDesc
@@ -358,11 +260,6 @@ func (c *Collector) collect(ch chan<- prometheus.Metric) error {
 		c.logger.Warn("Failed to get systemd version, won't automatically enable version-specific features",
 			"err", err.Error(),
 		)
-	}
-
-	err = c.collectBootStageTimestamps(conn, ch)
-	if err != nil {
-		c.logger.Debug("Failed to collect boot stage timestamps", "err", err.Error())
 	}
 
 	err = c.collectWatchdogMetrics(conn, ch)
@@ -437,52 +334,6 @@ func (c *Collector) collectMetadata(conn *dbus.Conn, ch chan<- prometheus.Metric
 	return systemdMajorVersion, nil
 }
 
-func (c *Collector) collectBootStageTimestamps(conn *dbus.Conn, ch chan<- prometheus.Metric) error {
-	stages := []string{
-		"Finish", "Firmware", "Loader", "Kernel", "InitRD",
-		"InitRDGeneratorsStart", "InitRDGeneratorsFinish",
-		"InitRDSecurityStart", "InitRDSecurityFinish",
-		"InitRDUnitsLoadStart", "InitRDUnitsLoadFinish",
-		"GeneratorsStart", "GeneratorsFinish",
-		"SecurityStart", "SecurityFinish", "Userspace",
-		"UnitsLoadStart", "UnitsLoadFinish",
-	}
-
-	for _, stage := range stages {
-		stageMonotonicValue, err := conn.GetManagerProperty(fmt.Sprintf("%sTimestampMonotonic", stage))
-		if err != nil {
-			return err
-		}
-
-		stageTimestampValue, err := conn.GetManagerProperty(fmt.Sprintf("%sTimestamp", stage))
-		if err != nil {
-			return err
-		}
-
-		stageMonotonic := strings.TrimPrefix(strings.TrimSuffix(stageMonotonicValue, `"`), `"`)
-		stageTimestamp := strings.TrimPrefix(strings.TrimSuffix(stageTimestampValue, `"`), `"`)
-
-		vMonotonic, err := strconv.ParseFloat(strings.TrimLeft(stageMonotonic, "@t "), 64)
-		if err != nil {
-			return err
-		}
-
-		vTimestamp, err := strconv.ParseFloat(strings.TrimLeft(stageTimestamp, "@t "), 64)
-		if err != nil {
-			return err
-		}
-
-		ch <- prometheus.MustNewConstMetric(
-			c.systemdBootMonotonic, prometheus.GaugeValue, float64(vMonotonic)/1e6,
-			stage)
-		ch <- prometheus.MustNewConstMetric(
-			c.systemdBootTime, prometheus.GaugeValue, float64(vTimestamp)/1e6,
-			stage)
-	}
-
-	return nil
-}
-
 func (c *Collector) collectUnit(conn *dbus.Conn, ch chan<- prometheus.Metric, unit dbus.UnitStatus, systemdMajorVersion int) error {
 	logger := c.logger.With("unit", unit.Name)
 
@@ -491,11 +342,6 @@ func (c *Collector) collectUnit(conn *dbus.Conn, ch chan<- prometheus.Metric, un
 	if err != nil {
 		logger.Warn(errUnitMetricsMsg, "err", err.Error())
 		// TODO should we continue processing here?
-	}
-
-	err = c.collectUnitTimeMetrics(conn, ch, unit)
-	if err != nil {
-		logger.Warn(errUnitMetricsMsg, "err", err.Error())
 	}
 
 	unitParts := strings.Split(unit.Name, ".")
@@ -510,11 +356,6 @@ func (c *Collector) collectUnit(conn *dbus.Conn, ch chan<- prometheus.Metric, un
 			logger.Warn(errUnitMetricsMsg, "err", err.Error())
 		}
 
-		err = c.collectServiceStartTimeMetrics(conn, ch, unit)
-		if err != nil {
-			logger.Warn(errUnitMetricsMsg, "err", err.Error())
-		}
-
 		if shouldCollectRestartsMetrics(systemdMajorVersion) {
 			err = c.collectServiceRestartCount(conn, ch, unit)
 			if err != nil {
@@ -524,10 +365,6 @@ func (c *Collector) collectUnit(conn *dbus.Conn, ch chan<- prometheus.Metric, un
 
 		fallthrough
 	case "slice", "scope":
-		if err = c.collectUnitTasksMetrics(conn, ch, unit, unitType); err != nil {
-			logger.Warn(errUnitMetricsMsg, "err", err.Error())
-		}
-
 		if err := c.collectUnitCPUMetrics(conn, ch, unit, unitType); err != nil {
 			logger.Warn(errUnitMetricsMsg, "err", err.Error())
 		}
@@ -577,27 +414,6 @@ func (c *Collector) collectUnitState(ch chan<- prometheus.Metric, unit dbus.Unit
 		ch <- prometheus.MustNewConstMetric(
 			c.unitState, prometheus.GaugeValue, isActive,
 			unit.Name, parseUnitType(unit), stateName)
-	}
-
-	return nil
-}
-
-func (c *Collector) collectUnitTimeMetrics(conn *dbus.Conn, ch chan<- prometheus.Metric, unit dbus.UnitStatus) error {
-	err := c.collectUnitTimeMetric(conn, ch, unit, c.unitActiveEnterTimeDesc, "ActiveEnterTimestamp")
-	if err != nil {
-		return err
-	}
-	err = c.collectUnitTimeMetric(conn, ch, unit, c.unitActiveExitTimeDesc, "ActiveExitTimestamp")
-	if err != nil {
-		return err
-	}
-	err = c.collectUnitTimeMetric(conn, ch, unit, c.unitInactiveEnterTimeDesc, "InactiveEnterTimestamp")
-	if err != nil {
-		return err
-	}
-	err = c.collectUnitTimeMetric(conn, ch, unit, c.unitInactiveExitTimeDesc, "InactiveExitTimestamp")
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -670,33 +486,6 @@ func (c *Collector) collectServiceRestartCount(conn *dbus.Conn, ch chan<- promet
 	return nil
 }
 
-// TODO metric is named unit but function is "Service"
-func (c *Collector) collectServiceStartTimeMetrics(conn *dbus.Conn, ch chan<- prometheus.Metric, unit dbus.UnitStatus) error {
-	var startTimeUsec uint64
-
-	switch unit.ActiveState {
-	case "active":
-		timestampValue, err := conn.GetUnitPropertyContext(c.ctx, unit.Name, "ActiveEnterTimestamp")
-		if err != nil {
-			return fmt.Errorf(errGetPropertyMsg, "ActiveEnterTimestamp", err)
-		}
-		startTime, ok := timestampValue.Value.Value().(uint64)
-		if !ok {
-			return fmt.Errorf(errConvertUint64PropertyMsg, "ActiveEnterTimestamp", timestampValue.Value.Value())
-		}
-		startTimeUsec = startTime
-
-	default:
-		startTimeUsec = 0
-	}
-
-	ch <- prometheus.MustNewConstMetric(
-		c.unitStartTimeDesc, prometheus.GaugeValue,
-		float64(startTimeUsec)/1e6, unit.Name, parseUnitType(unit))
-
-	return nil
-}
-
 func (c *Collector) collectSocketConnMetrics(conn *dbus.Conn, ch chan<- prometheus.Metric, unit dbus.UnitStatus) error {
 	acceptedConnectionCount, err := conn.GetUnitTypePropertyContext(c.ctx, unit.Name, "Socket", "NAccepted")
 	if err != nil {
@@ -755,43 +544,6 @@ func (c *Collector) collectIPAccountingMetrics(conn *dbus.Conn, ch chan<- promet
 	return nil
 }
 
-func (c *Collector) collectUnitTasksMetrics(conn *dbus.Conn, ch chan<- prometheus.Metric, unit dbus.UnitStatus, unitType string) error {
-	tasksCurrentCount, err := conn.GetUnitTypePropertyContext(c.ctx, unit.Name, unitType, "TasksCurrent")
-	if err != nil {
-		return fmt.Errorf(errGetPropertyMsg, "TasksCurrent", err)
-	}
-
-	currentCount, ok := tasksCurrentCount.Value.Value().(uint64)
-	if !ok {
-		return fmt.Errorf(errConvertUint64PropertyMsg, "TasksCurrent", tasksCurrentCount.Value.Value())
-	}
-
-	// Don't set if tasksCurrent if dbus reports MaxUint64.
-	if currentCount != math.MaxUint64 {
-		ch <- prometheus.MustNewConstMetric(
-			c.unitTasksCurrentDesc, prometheus.GaugeValue,
-			float64(currentCount), unit.Name)
-	}
-
-	tasksMaxCount, err := conn.GetUnitTypePropertyContext(c.ctx, unit.Name, unitType, "TasksMax")
-	if err != nil {
-		return fmt.Errorf(errGetPropertyMsg, "TasksMax", err)
-	}
-
-	maxCount, ok := tasksMaxCount.Value.Value().(uint64)
-	if !ok {
-		return fmt.Errorf(errConvertUint64PropertyMsg, "TasksMax", tasksMaxCount.Value.Value())
-	}
-	// Don't set if tasksMax if dbus reports MaxUint64.
-	if maxCount != math.MaxUint64 {
-		ch <- prometheus.MustNewConstMetric(
-			c.unitTasksMaxDesc, prometheus.GaugeValue,
-			float64(maxCount), unit.Name, parseUnitType(unit))
-	}
-
-	return nil
-}
-
 func (c *Collector) collectUnitCPUMetrics(conn *dbus.Conn, ch chan<- prometheus.Metric, unit dbus.UnitStatus, unitType string) error {
 	usageNSec, err := conn.GetUnitTypePropertyContext(c.ctx, unit.Name, unitType, "CPUUsageNSec")
 	if err != nil {
@@ -814,11 +566,7 @@ func (c *Collector) collectUnitMemoryMetrics(conn *dbus.Conn, ch chan<- promethe
 	var errs []error
 
 	for propertyName, desc := range map[string]*prometheus.Desc{
-		"MemoryCurrent":      c.unitMemoryCurrent,
-		"MemoryPeak":         c.unitMemoryPeak,
-		"MemorySwapCurrent":  c.unitSwapCurrent,
-		"MemorySwapPeak":     c.unitSwapPeak,
-		"MemoryZSwapCurrent": c.unitZSwapCurrent,
+		"MemoryCurrent": c.unitMemoryCurrent,
 	} {
 		val, err := conn.GetUnitTypePropertyContext(c.ctx, unit.Name, unitType, propertyName)
 		if err != nil {
