@@ -319,9 +319,14 @@ func (c *Collector) collectMetadata(conn *dbus.Conn, ch chan<- prometheus.Metric
 	// The systemd version string can include significant suffixes after systemd's own major.minor
 	// version, e.g. 257.10-1.fc42. Parse out the first digits of the string only and assume this is
 	// the major version.
-	major, _, ok := strings.Cut(systemdVersion, ".")
-	if !ok {
-		return 0, systemdVersionParseError{systemdVersion}
+	// There are situations when the systemd version string can be just a number, i.e. "245"
+	major := systemdVersion
+	if strings.Contains(systemdVersion, ".") {
+		before, _, ok := strings.Cut(systemdVersion, ".")
+		if !ok {
+			return 0, systemdVersionParseError{systemdVersion}
+		}
+		major = before
 	}
 
 	systemdMajorVersion, err := strconv.Atoi(major)
@@ -415,21 +420,6 @@ func (c *Collector) collectUnitState(ch chan<- prometheus.Metric, unit dbus.Unit
 			c.unitState, prometheus.GaugeValue, isActive,
 			unit.Name, parseUnitType(unit), stateName)
 	}
-
-	return nil
-}
-
-func (c *Collector) collectUnitTimeMetric(conn *dbus.Conn, ch chan<- prometheus.Metric, unit dbus.UnitStatus, desc *prometheus.Desc, propertyName string) error {
-	timestampValue, err := conn.GetUnitPropertyContext(c.ctx, unit.Name, propertyName)
-	if err != nil {
-		return fmt.Errorf(errGetPropertyMsg, propertyName, err)
-	}
-	startTimeUsec, ok := timestampValue.Value.Value().(uint64)
-	if !ok {
-		return fmt.Errorf(errConvertUint64PropertyMsg, propertyName, timestampValue.Value.Value())
-	}
-
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(startTimeUsec)/1e6, unit.Name, parseUnitType(unit))
 
 	return nil
 }

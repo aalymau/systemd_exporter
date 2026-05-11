@@ -44,7 +44,7 @@ func main() {
 		maxRequests = kingpin.Flag(
 			"web.max-requests",
 			"Maximum number of parallel scrape requests. Use 0 to disable.",
-		).Default("40").Int()
+		).Default("50").Int()
 		enableResolvedgMetrics = kingpin.Flag("systemd.collector.enable-resolved", "Enable systemd-resolved statistics").Bool()
 
 		toolkitFlags = webflag.AddFlags(kingpin.CommandLine, ":9558")
